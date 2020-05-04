@@ -5,6 +5,7 @@ import tensorflow as tf
 import random
 from os import listdir
 from matplotlib import pyplot as plt
+from main import cv_show
 def enhance(load):#数据增强模块
     with tf.Session() as sess:
         for i in load:
@@ -109,10 +110,11 @@ def imghandle(img_name):#图片处理
     img = cv.cvtColor(img, cv.COLOR_BGR2RGB)
     img=cv.resize(img,(640,480))#准备参数
     imgout = cv.cvtColor(img,cv.COLOR_BGR2GRAY)
+    cv_show('imgout',imgout)
     thresholdvalue=imgout[20,20]
     light_num=30
     kernel = np.ones((9,9), np.uint8)
-    print(cv.__version__,thresholdvalue)
+#     print(cv.__version__,thresholdvalue)
     if thresholdvalue>190:
         light_num=50
     elif thresholdvalue>200:

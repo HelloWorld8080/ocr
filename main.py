@@ -5,8 +5,15 @@ from tkinter import *
 import tkinter.filedialog
 import a
 import pred
+
+def cv_show(name,img):
+    cv.imshow(name, img)
+    cv.waitKey(0)
+    cv.destroyAllWindows()
+
 def xz():
     filename=tkinter.filedialog.askopenfilename()
+    print(filename)
     img=a.imghandle(filename)
     pred.pred(img)
 def en():

@@ -5,7 +5,11 @@ import tensorflow as tf
 import random
 from os import listdir
 from matplotlib import pyplot as plt
-from main import cv_show
+def cv_show(name,img):
+    cv.imshow(name, img)
+    cv.waitKey(0)
+    cv.destroyAllWindows()
+    
 def enhance(load):#数据增强模块
     with tf.Session() as sess:
         for i in load:
@@ -58,6 +62,7 @@ def cutimg(img_value,ROI_w,ROI_h,ROI_x,ROI_y,type):#裁剪图片
                 return img
             else :
                 x[j][0:]=img_value[ROI_y+j][n+ROI_x:n+ROI_x+25]
+#         cv_show('x', x)                 
         img.append(x)
     return img
 def tool1(type,imgout,kernel,light_num,thresholdvalue):#卡号定位处理
@@ -70,9 +75,14 @@ def tool1(type,imgout,kernel,light_num,thresholdvalue):#卡号定位处理
     elif type==3:
         retval, dst=cv.threshold(imgout,thresholdvalue-light_num-30,255,cv.THRESH_BINARY_INV)
     dst = cv.morphologyEx(dst,cv.MORPH_GRADIENT,kernel)
-    contours, hierarchy=cv.findContours(dst,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
-    for i in range(0,len(contours)):  
-        x, y, w, h = cv.boundingRect(contours[i]) 
+    cv.imshow('tool',dst)
+#     contours, hierarchy=cv.findContours(dst,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
+    _,contours, hierarchy=cv.findContours(dst,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
+    lendstcon=len(contours)
+    
+    for i in range(0,lendstcon):   
+        x, y, w, h = cv.boundingRect(contours[i])
+        
         # print('ROI:',ROI_x,ROI_y,ROI_w,ROI_h,"\n")
         if w>150 and h>120 and y>300:
             ROI_y=0
@@ -105,13 +115,22 @@ def tool1(type,imgout,kernel,light_num,thresholdvalue):#卡号定位处理
         else:
             continue
     return ROI_w,ROI_h,ROI_x,ROI_y,num
+def getlight(grayimg):
+    light=0
+    cout=0   
+    for imge in grayimg:
+        for imgee in imge:
+            light+=imgee
+            cout+=1
+    imglight=light//cout
+    return imglight
 def imghandle(img_name):#图片处理
     img = cv.imread(img_name)
     img = cv.cvtColor(img, cv.COLOR_BGR2RGB)
     img=cv.resize(img,(640,480))#准备参数
     imgout = cv.cvtColor(img,cv.COLOR_BGR2GRAY)
-    cv_show('imgout',imgout)
-    thresholdvalue=imgout[20,20]
+    cv.imshow('imgout',imgout)
+    thresholdvalue=getlight(imgout)
     light_num=30
     kernel = np.ones((9,9), np.uint8)
 #     print(cv.__version__,thresholdvalue)
@@ -120,18 +139,21 @@ def imghandle(img_name):#图片处理
     elif thresholdvalue>200:
         light_num=100
     dst = cv.morphologyEx(imgout,cv.MORPH_TOPHAT,kernel)#形态处理
+    cv.imshow('dis1',dst)
     gradX = cv.Sobel(dst,cv.CV_32F,1,0,-1)
     gradX = np.absolute(gradX)
     gradX = (255 * ((gradX -np.min(gradX)) / (np.max(gradX) -np.min(gradX))))  
     dst = gradX.astype("uint8")#梯度处理
     dst = cv.morphologyEx(dst,cv.MORPH_CLOSE,kernel)
     retval, dst=cv.threshold(imgout,thresholdvalue+light_num,255,cv.THRESH_BINARY)
+    cv.imshow('dis2', dst)
     ROI_w,ROI_h,ROI_x,ROI_y,num=tool1(1,imgout,kernel,light_num,thresholdvalue)#卡号定位处理
     if ROI_w/640>0.7 and num>20:
         ROI_w+=abs(640-ROI_w-ROI_x)
         ROI_x-=10
+        cv.imshow("imggg",img)
         handle=cutimg(img,ROI_w,ROI_h,ROI_x,ROI_y,1)
-        cv.rectangle(img, (ROI_x,ROI_y), (ROI_x+ROI_w,ROI_y+ROI_h), (165,165,255), 2)
+        cv.rectangle(img, (ROI_x,ROI_y), (ROI_x+ROI_w,ROI_y+ROI_h), (255,0,0), 2)
         plt.imshow(img)
         plt.show()
         return handle

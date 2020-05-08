@@ -5,17 +5,21 @@ from tkinter import *
 import tkinter.filedialog
 import a
 import pred
+from a import cv_show
 
-def cv_show(name,img):
-    cv.imshow(name, img)
-    cv.waitKey(0)
-    cv.destroyAllWindows()
 
 def xz():
     filename=tkinter.filedialog.askopenfilename()
     print(filename)
-    img=a.imghandle(filename)
-    pred.pred(img)
+    imgs=a.imghandle(filename)
+    print("img***",imgs)
+    co=0;
+    for img in imgs:
+        print(img)
+        cv_show('img',img)
+        co+=1
+    print(co)    
+    pred.pred(imgs)
 def en():
     filename=tkinter.filedialog.askopenfilenames()
     a.enhance(filename)

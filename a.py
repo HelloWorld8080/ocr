@@ -7,6 +7,7 @@ from os import listdir
 from matplotlib import pyplot as plt
 from scipy import ndimage
 from cv2.cv2 import morphologyEx, MORPH_CLOSE, MORPH_OPEN, MORPH_TOPHAT, dilate
+from PIL.ImageChops import screen
 def cv_show(name,img):
     cv.imshow(name, img)
     cv.waitKey(0)
@@ -117,18 +118,19 @@ def scan(image):
     gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
     gray = cv.GaussianBlur(gray, (5, 5), 0)
     edged = cv.Canny(gray, 70, 100)
-    
+    kernel = np.ones((3,3), np.uint8)
+    close = cv.morphologyEx(edged,MORPH_CLOSE,kernel)
     # 展示预处理结果
     print("STEP 1: 边缘检测")
     cv.imshow("Image", image)
     cv.imshow("Edged", edged)
-    
+    cv.imshow("close", close)
     # 轮廓检测
     cnts = cv.findContours(edged.copy(), cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE)[1]
     cv.drawContours(image, cnts, -1, (0, 255, 0), 2)
     cv.imshow('imagecon',image)
     cnts = sorted(cnts, key = cv.contourArea, reverse = True)[:5]
-    
+    screenCnt=[]
     # 遍历轮廓
     for c in cnts:
         # 计算轮廓近似
@@ -137,23 +139,31 @@ def scan(image):
         # epsilon表示从原始轮廓到近似轮廓的最大距离，它是一个准确度参数
         # True表示封闭的
         approx = cv.approxPolyDP(c, 0.01 * peri, True)
-    
+        cv.drawContours(image, [approx], -1, (0, 100, 200), 2)
+        cv.imshow('approx',image)
         # 4个点的时候就拿出来
         if len(approx) == 4:
             screenCnt = approx
             break
     
     # 展示结果
-    
-    print("STEP 2: 获取轮廓")
-    cv.drawContours(image, [screenCnt], -1, (0, 255, 0), 2)
-    cv.imshow("Outline", image)
-    
-    # 透视变换
-    warped = four_point_transform(orig, screenCnt.reshape(4,2))
-    cv.imshow('warped',warped)
-    
-    return warped
+    if(len(screenCnt)==4):
+       x, y, w, h = cv.boundingRect(screenCnt) 
+    else:
+        return 'noscan'
+    if w>500 and h>300 :
+        print("STEP 2: 获取轮廓")
+        cv.drawContours(image, [screenCnt], -1, (0, 255, 0), 2)
+        cv.imshow("Outline", image)
+        
+        # 透视变换
+        warped = four_point_transform(orig, screenCnt.reshape(4,2))
+        cv.imshow('warped',warped)
+        
+        return warped
+      
+    else:
+        return 'noscan'
     
 def CardNumLocal(orimg):
     # 添加矩形框元素
@@ -250,9 +260,16 @@ def imghandle(img_name):#图片处理
     handle=[]
     orgimg = cv.imread(img_name)
     imgout=scan(orgimg)
-    imgout = cv.resize(imgout, (800,400), interpolation=cv.INTER_AREA)
+    if imgout=='noscan':
+        imgout=orgimg.copy()
+        imgout = cv.resize(imgout, (800,400), interpolation=cv.INTER_AREA)
+        ROI_w,ROI_h,ROI_x,ROI_y=CardNumLocal(imgout)#卡号定位处理
+    else:
+        imgout = cv.resize(imgout, (800,400), interpolation=cv.INTER_AREA)
+        ROI_w,ROI_h,ROI_x,ROI_y=CardNumLocal(imgout)#卡号定位处理
     cv.imshow('imgout1',imgout)
-    ROI_w,ROI_h,ROI_x,ROI_y=CardNumLocal(imgout)#卡号定位处理
+    
+    
     cv.imshow('imgout2',imgout)
     cv.rectangle(imgout, (ROI_x,ROI_y), (ROI_x+ROI_w,ROI_y+ROI_h), (255,0,0), 2)
     plt.imshow(imgout)

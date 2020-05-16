@@ -8,7 +8,7 @@ img=[]#图片列表
 test=[]#测试数据下标列表
 #parm
 learning_rate=0.001 #学习率
-training_iters=20 #训练周期
+training_iters=20 #训练周期s
 batch_size=50 #批处理
 display_step=50 #迭代次数用于统计精准度
 #network
@@ -59,35 +59,40 @@ def split_str(str):#字符串切割用来提取测试数据的正确下标
                        x[int(str[i])]=1
                        test.append(x)
 def cutimg(img_value):#切割图片
-    x=np.zeros((img_value.shape[0],30,img_value.shape[2]))
-    for i in range(0,(int)(img_value.shape[1]/30)):
+    x=[]
+    for i in range(0, img_value.shape[1]//30 ):
         n=i*30
-        for j in range(0,x.shape[0]):
-                x[j][0:]=img_value[j][n:n+30]
+        x=img_value[0:,n:n+30]
+        cv.imshow('x',x)        
         img.append(np.array(x))
 def img_load(key_list):#加载图片
     with tf.Session() as se:
         for imgname in key_list:
             split_str(imgname)
             image_string = tf.read_file(imgname)
-            cutimg( se.run(tf.image.decode_image(image_string)))
+            cutimg(se.run(tf.image.decode_image(image_string)))
 def String_add(string_list):
     n=0
     for i in string_list:
         string_list[n]='img/'+i
         n+=1
-img_list=listdir('img/')#获取训练数据
-String_add(img_list)
-img_load(img_list)#加载数据集
-x1=tf.constant(np.array(img))
-t1=tf.constant(np.array(test))
-dataset=tf.data.Dataset.from_tensor_slices((x1, t1))#建立dataset集
-datasets=dataset.shuffle(10).batch(batch_size).repeat(training_iters)
-pred=convnet(img_input,weights,biases,keep_prob)#推理
-cost=tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=pred,labels=test_input),name='cost')#计算损失函数
-optimizer= tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(cost)#权重优化
-correct_prediction=tf.equal(tf.argmax(pred,1),tf.argmax(test_input,1),name='correct_prediction')
-accuracy= tf.reduce_mean(tf.cast(correct_prediction,tf.float32),name='accuracy')#计算精确度
+with tf.name_scope('input'):        
+    img_list=listdir('img/')#获取训练数据
+    String_add(img_list)
+    img_load(img_list)#加载数据集
+    x1=tf.constant(np.array(img))
+    t1=tf.constant(np.array(test))
+    dataset=tf.data.Dataset.from_tensor_slices((x1, t1))#建立dataset集
+    datasets=dataset.shuffle(10).batch(batch_size).repeat(training_iters)
+with tf.name_scope('pred'):     
+    pred=convnet(img_input,weights,biases,keep_prob)#推理
+with tf.name_scope('loss'):      
+    cost=tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=pred,labels=test_input),name='cost')#计算损失函数
+with tf.name_scope('train'):
+    optimizer= tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(cost)#权重优化
+    correct_prediction=tf.equal(tf.argmax(pred,1),tf.argmax(test_input,1),name='correct_prediction')
+with tf.name_scope('output-accuracy'):    
+     accuracy= tf.reduce_mean(tf.cast(correct_prediction,tf.float32),name='accuracy')#计算精确度
 saver=tf.train.Saver(max_to_keep=1)#保存模型
 init=tf.global_variables_initializer()
 train_loss=[]
@@ -99,6 +104,7 @@ with tf.Session() as sess:#开始训练
         init_op = iterator.make_initializer(datasets)
         step=1
         sess.run(init_op)
+        writer=tf.summary.FileWriter("./summary/linear-regression-2/",sess.graph)
         iterator = iterator.get_next()
         try:
                 while True:
@@ -109,7 +115,6 @@ with tf.Session() as sess:#开始训练
                                 loss_train,acc_train=sess.run([cost,accuracy],feed_dict={img_input:x_out,test_input:y_out,keep_prob:1})
                                 train_loss.append(loss_train)
                                 training_acc.append(acc_train)
-
                         step+=1
         except tf.errors.OutOfRangeError:#训练结束,保存结果并绘制训练情况
                 saver.save(sess,"save_mode",global_step=step)
@@ -126,3 +131,4 @@ with tf.Session() as sess:#开始训练
                 plt.ylabel('Accuracy')
                 plt.legend(loc='lower right')
                 plt.show()
+writer.close()

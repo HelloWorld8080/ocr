@@ -7,18 +7,10 @@ import a
 import pred
 from a import cv_show
 
-
 def xz():
     filename=tkinter.filedialog.askopenfilename()
     print(filename)
-    imgs=a.imghandle(filename)
-    print("img***",imgs)
-    co=0;
-    for img in imgs:
-        print(img)
-        cv_show('img',img)
-        co+=1
-    print(co)    
+    imgs=a.imghandle(filename) 
     pred.pred(imgs)
 def en():
     filename=tkinter.filedialog.askopenfilenames()

@@ -22,7 +22,7 @@ def enhance(load):#数据增强模块
                 img_data = tf.image.decode_image(raw_img)
                 if n==0:         #随机进行翻转,裁剪,缩放,调整对比度,色调,亮度
                     img_data=np.rot90(sess.run(img_data))
-                    strload=i[0:i.find('.',-5,-1)-1]+'_'+str(s)+str(n)+'.jpg'
+                    strload=i[0:i.find('.',-5,-1)-1]+'_'+str(s)+str(n)+'.png'
                     cv.imwrite(strload,img_data.eval()) 
                 elif n==1:
                     img_data = tf.image.rgb_to_grayscale(img_data)
@@ -50,7 +50,7 @@ def enhance(load):#数据增强模块
                 elif n== 10:
                     img_data = tf.image.flip_up_down(img_data)
                 img_data = tf.image.convert_image_dtype(img_data, tf.int16)
-                strload=i[0:i.find('.',-5,-1)-1]+'_'+str(s)+str(n)+'.jpg'
+                strload=i[0:i.find('.',-5,-1)-1]+'_'+str(s)+str(n)+'.png'
                 cv.imwrite(strload,img_data.eval())
 def cutimg(img_value,ROI_w,ROI_h,ROI_x,ROI_y,type):#裁剪图片
     img=[]
@@ -68,11 +68,12 @@ def cutimg(img_value,ROI_w,ROI_h,ROI_x,ROI_y,type):#裁剪图片
 #         cv_show('x', x)                 
         img.append(x)
     return img
+
 def scan(image):
     def order_points(pts):
         # 一共4个坐标点
         rect = np.zeros((4, 2), dtype = "float32")
-    
+        
         # 按顺序找到对应坐标0123分别是 左上，右上，右下，左下
         # 计算左上，右下
         s = pts.sum(axis = 1)
@@ -187,7 +188,25 @@ def CardNumLocal(orimg):
             return b[len(b)-1]
         else:
             return b[0]
-    
+    def cutimg1(img_value,type):
+        handle=[]
+        if type==0:
+            th=34
+            co=0
+            for i in range(0,4):
+                t=7+th
+                n=i*(th*4+t)+10
+                if img_value.shape[1]-n<4*th:
+                    return handle
+                cutiimg=img_value[0:, n:n+4*th] 
+                cv.imshow('cutiimg',cutiimg)
+                for j in range(0,4):
+                    n=j*th
+                    cutjimg=cutiimg[0:, n:n+th]
+                    cv.imshow('cutjimg',cutjimg)
+                    handle.append(cutjimg)    
+        return handle
+          
     tent = 1
     startx = 0
     finalx = 0
@@ -206,7 +225,7 @@ def CardNumLocal(orimg):
     kernel2 = np.ones((3, 3), np.uint8)
     dst2=morphologyEx(dst1,MORPH_OPEN,kernel2)
     cv.imshow('dst2', dst2)
-    image_contours, contours, hier = cv.findContours(dst2, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
+    contours = cv.findContours(dst2, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)[1]
     for i in range(len(contours)):
         cnt = contours[i]
         x, y, w, h = cv.boundingRect(cnt)
@@ -230,23 +249,24 @@ def CardNumLocal(orimg):
                     cv.rectangle(imggg1,(x,y),(x+w,y+h),(255,0,0),2)
                     break
     cv.imshow('imggg1',imggg1)          
-    newimg[0:target[0][1]-3,0:800] = 0
-    newimg[target[0][1]+target[0][3]+3:400, 0:800] = 0
-    cv.imshow('newimg2',newimg)
     finalx = bubble_sort(point, 0, 1)
     startx = bubble_sort(point, 0, 0) - 3
     starty = bubble_sort(point, 1, 0) - 3
     finalx = finalx + bubble_sort(point, 2, 1)
-    finaly = starty + bubble_sort(point, 3, 1) + 10
-    print("startx = "+ str(startx))
-    print("starty = "+ str(finaly))
-    print("width = "+ str(finalw))
-    print("height = "+ str(finalh))
-    # 画出矩形框
-    cv.rectangle(img,(startx,starty),(finalx, finaly),(0, 255, 0),2)
-    cv.imshow("org", img)
-    return finalx-startx,finaly-starty,startx,starty
-    
+    finaly = starty + bubble_sort(point, 3, 1) + 8
+    lcan_dst2=dst2[starty:finaly, startx:finalx]
+    cv.imshow('lcan_dst2',lcan_dst2)
+    kernel3 = np.ones((4, 4), np.uint8)
+    t_lcan_dst2=morphologyEx(lcan_dst2,MORPH_TOPHAT,kernel3)
+    cv.imshow('b_lcan_dst2', t_lcan_dst2)
+    da_dst2=dilate(lcan_dst2-t_lcan_dst2,kernel)
+    cv.imshow('da_dst2',da_dst2)
+    lcanimg=orimg[starty:finaly, startx-10:finalx+10]
+    cv.imshow('lcanimg',lcanimg)
+    lcanimgs=cutimg1(lcanimg, 0)
+    for lli in lcanimgs:
+        cv.imshow('lli',lli)       
+    return lcanimgs,startx,starty,finalx,finaly
 def getlight(grayimg):
     light=0
     cout=0   
@@ -260,18 +280,15 @@ def imghandle(img_name):#图片处理
     handle=[]
     orgimg = cv.imread(img_name)
     imgout=scan(orgimg)
+   
     if imgout=='noscan':
         imgout=orgimg.copy()
         imgout = cv.resize(imgout, (800,400), interpolation=cv.INTER_AREA)
-        ROI_w,ROI_h,ROI_x,ROI_y=CardNumLocal(imgout)#卡号定位处理
+        localimgs,startx,starty,finalx,finaly=CardNumLocal(imgout.copy())#卡号定位处理
     else:
         imgout = cv.resize(imgout, (800,400), interpolation=cv.INTER_AREA)
-        ROI_w,ROI_h,ROI_x,ROI_y=CardNumLocal(imgout)#卡号定位处理
-    cv.imshow('imgout1',imgout)
-    
-    
-    cv.imshow('imgout2',imgout)
-    cv.rectangle(imgout, (ROI_x,ROI_y), (ROI_x+ROI_w,ROI_y+ROI_h), (255,0,0), 2)
+        localimgs,startx,starty,finalx,finaly=CardNumLocal(imgout.copy())#卡号定位处理
+    cv.rectangle(imgout, (startx,starty), (finalx,finaly), (255,0,0), 2)
     plt.imshow(imgout)
     plt.show()
-    return handle   
+    return  localimgs   

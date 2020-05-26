@@ -316,27 +316,37 @@ def line_detect_possible(orimage):
 
 def fix(imgs):
     return None
-def cutbankimg(img,th,wzise):
+def cutbankimg(img,th,wzise,style):
     imgs=[]
-    radio=img.shape[1]//img.shape[0]
-    img=cv.resize(img,(600*radio,600))
     n=0
-    while True:
-        if n+th>600*radio:
-            return imgs
-        else:
-            cutimg=img[n:n+th,0:]
-            imgs.append(cutimg)
-        n+=wzise    
-        
+    if style==0:
+        while True:
+            if n+th>img.shape[0]:
+                return imgs
+            else:
+                cutimg=img[n:n+th,0:]
+                imgs.append(cutimg)
+            n+=wzise    
+    elif style==1:
+        while True:
+            if n+th>img.shape[1]:
+                return imgs
+            else:
+                cutimg=img[0:,n:n+th]
+                imgs.append(cutimg)
+            n+=wzise   
 def imghandle(img_name):#图片处理
     handle=[]
     orgimg = cv.imread(img_name)
 #     line_detect_possible(orgimg)
     cv.imshow('orgimg',orgimg)
     imgout=scan(orgimg)
+#     imgout = orgimg
     cv.imshow('imgoutfix',imgout)
-    cutimgs=cutbankimg(imgout, 55, 5)
+    radio=imgout.shape[0]/imgout.shape[1]
+    img=cv.resize(imgout,( 600,int(600*radio) ))
+    cv.imshow('img',img)
+    cutimgs=cutbankimg(img, 52, 50,0)
     for img in cutimgs:
         cv.imshow('cutimg',img)
     return cutimgs    

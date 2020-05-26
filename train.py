@@ -7,8 +7,7 @@ from cProfile import label
 from matplotlib.pylab import style
 
 #本程序参考了TensorFlow中文官方教程
-img=[]#图片列表
-test=[]#测试数据下标列表
+
 #parm
 learning_rate=0.001 #学习率
 training_iters=10 #训练周期s
@@ -59,43 +58,54 @@ biases={
         'bc2':tf.Variable(tf.random_normal([64]),name='bc2'),#卷积层权重
        
 }
-def split_str(str):#字符串切割用来提取测试数据的正确下标
-        for i in range(4,8):
-                x=np.zeros((out_class))
-                if str[i]=='_': 
-                    x[out_class-1]=1
-                    test.append(x)
-                else:
-                    x[int(str[i])]=1
-                    test.append(x)
+ 
 def cutimg(img_value):#切割图片
     x=[]
+    img=[]#图片列表
     img_value=cv.cvtColor(img_value,cv.COLOR_BGR2GRAY)
     for i in range(0, img_value.shape[1]//30 ):
         n=i*30
         x=img_value[0:,n:n+30]
         cv.imshow('x',np.array(x))
         img.append(np.array(x))
-def img_load(key_list):#加载图片
-    with tf.Session() as se:
-        for imgname in key_list:
-            split_str(imgname)
-            image_string = tf.read_file(imgname)
-            cutimg(se.run(tf.image.decode_image(image_string)))
+def img_load(path='imgset'):#加载图片
+    labels=[]
+    imgs=[]
+    img_list=listdir(path)
+    for imgname in img_list:
+        image=cv.imread(path+imgname)
+        imgs.append(image)
+        x=np.zeros((out_class))
+        if imgname=='_': 
+            x[out_class-1]=1
+        else:
+            x[int(imgname)]=1
+        labels.append(x)      
+    return imgs,labels    
 def String_add(string_list):
     n=0
     for i in string_list:
         string_list[n]='img/'+i
         n+=1
-        
+def imgset_cuthandle(path,key_list):
+        for imgname in key_list:
+            image=cv.imread(path+imgname,cv.COLOR_BGR2GRAY)
+            for i in range(0,4):
+                n=i*30
+                img=image[0:,n:n+30]
+                if imgname[i]=='_': 
+                    cv.imwrite('imgset/_.png',img) 
+                else:
+                    cv.imwrite('imgset/'+imgname[i]+'.png',img)        
 style.use('ggplot')    
 plt.rcParams['font.sans-serif'] = ['SimHei'] 
-plt.rcParams['axes.unicode_minus'] = False      
-img_list=listdir('img/')#获取训练数据
-String_add(img_list)
-img_load(img_list)#加载数据集
-x1=tf.constant(np.array(img))
-t1=tf.constant(np.array(test))
+plt.rcParams['axes.unicode_minus'] = False
+path='img/'      
+img_list=listdir(path)#获取训练数据
+imgset_cuthandle(path,img_list)
+imgs,labels=img_load('imgset')#加载数据集
+x1=tf.constant(np.array(imgs))
+t1=tf.constant(np.array(labels))
 dataset=tf.data.Dataset.from_tensor_slices((x1, t1))#建立dataset集
 datasets=dataset.shuffle(10).batch(batch_size).repeat(training_iters)
 pred=convnet(img_input,weights,biases,keep_prob)#推理

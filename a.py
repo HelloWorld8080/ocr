@@ -7,7 +7,6 @@ from os import listdir
 from matplotlib import pyplot as plt
 from scipy import ndimage
 from cv2.cv2 import morphologyEx, MORPH_CLOSE, MORPH_OPEN, MORPH_TOPHAT, dilate
-from PIL.ImageChops import screen
 def cv_show(name,img):
     cv.imshow(name, img)
     cv.waitKey(0)
@@ -16,14 +15,13 @@ def cv_show(name,img):
 def enhance(load):#数据增强模块
     with tf.Session() as sess:
         for i in load:
-            for s in range(0,80):
+            for s in range(0,20):
                 raw_img = tf.gfile.FastGFile(i,'rb').read()
                 n=random.randint(0,11)
                 img_data = tf.image.decode_image(raw_img)
-                if n==0:         #随机进行翻转,裁剪,缩放,调整对比度,色调,亮度
+                if n==0:         # 
                     img_data=np.rot90(sess.run(img_data))
                     strload=i[0:i.find('.',-5,-1)-1]+'_'+str(s)+str(n)+'.png'
-                    cv.imwrite(strload,img_data.eval()) 
                 elif n==1:
                     img_data = tf.image.rgb_to_grayscale(img_data)
                 elif n==2:
@@ -166,7 +164,7 @@ def scan(image):
     else:
         return 'noscan'
     
-def CardNumLocal(orimg):
+def CardNumLocal(orimg,type):
     # 添加矩形框元素
     def add_cont(x, y, w ,h):
         p = []
@@ -175,7 +173,6 @@ def CardNumLocal(orimg):
         p.append(w)
         p.append(h)
         return p
-    # 起泡法排序返回最大or最小值
     def bubble_sort(a, w, s):
         '''w: 要取的x,y,w,h元素，对应0，1，2，3'''
         '''s: 0取最小值， 1取最大值'''
@@ -206,67 +203,92 @@ def CardNumLocal(orimg):
                     cv.imshow('cutjimg',cutjimg)
                     handle.append(cutjimg)    
         return handle
-          
+    def ts(e):
+        return e[0]
+    locanimgs=[]     
     tent = 1
-    startx = 0
-    finalx = 0
-    finaly = 0
-    finalw = 0
-    finalh = 0
     point = []
     target = []
     img=orimg.copy()
     cv.imshow('img',img)
-    kernel = np.ones((5, 5), np.uint8)
-    newimg = cv.Canny(img, 70, 100)
-    cv.imshow('newimg',newimg)
-    dst1=morphologyEx(newimg,MORPH_CLOSE,kernel)
-    cv.imshow('dst1', dst1)
-    kernel2 = np.ones((3, 3), np.uint8)
-    dst2=morphologyEx(dst1,MORPH_OPEN,kernel2)
-    cv.imshow('dst2', dst2)
-    contours = cv.findContours(dst2, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)[1]
-    for i in range(len(contours)):
-        cnt = contours[i]
-        x, y, w, h = cv.boundingRect(cnt)
-        if 40>w>15 and 50>h>25:
-            point.append(add_cont(x,y,w,h))
-            cv.rectangle(img, (x,y), (x+w,y+h), (255,0,0), 2)
-    cv.imshow('imggg',img)
-    imggg1=orimg.copy()
+    kernel3 = np.ones((3, 3), np.uint8)
+    kernel4 = np.ones((4, 4), np.uint8)
+    kernel5 = np.ones((5, 5), np.uint8)
+    kernel9 = np.ones((9, 9), np.uint8)
+    if type==0:
+        gray = cv.GaussianBlur(img, (5, 5), 0)
+        newimg = cv.Canny(gray, 70, 100)
+        cv.imshow('newimg',newimg)
+        dst0_9=morphologyEx(newimg,MORPH_CLOSE,kernel9)
+        cv.imshow('dst0_9',dst0_9)
+        contours = cv.findContours(dst0_9, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)[1]
+        for cnt in contours:
+            x,y,w,h=cv.boundingRect(cnt)
+            if 30>w>20 and 35>h>25:
+                point.append((x,y,w,h))        
+        point.sort(key=ts)        
+        for rect in point:
+            x,y,w,h=rect[0],rect[1],rect[2],rect[3]         
+            locanimg=orimg[y-3:y+h+3,x-3:x+w+3]
+            locanimgs.append(locanimg)
             
-    for o in range(len(point)):
-        for i in range(len(point)):
-            if i != o:
-                xx= abs(point[o][1] - point[i][1])
-                if xx>=0 and xx<=10:
-                    tent += 1
-                    
-                if  tent >10 :
-                    tent = 1
-                    target.append(point[o])
-                    x,y,w,h=point[o][0],point[o][1],point[o][2],point[o][3]
-                    cv.rectangle(imggg1,(x,y),(x+w,y+h),(255,0,0),2)
-                    break
-    cv.imshow('imggg1',imggg1)          
-    finalx = bubble_sort(point, 0, 1)
-    startx = bubble_sort(point, 0, 0) - 3
-    starty = bubble_sort(point, 1, 0) - 3
-    finalx = finalx + bubble_sort(point, 2, 1)
-    finaly = starty + bubble_sort(point, 3, 1) + 8
-    lcan_dst2=dst2[starty:finaly, startx:finalx]
-    cv.imshow('lcan_dst2',lcan_dst2)
-    kernel3 = np.ones((4, 4), np.uint8)
-    t_lcan_dst2=morphologyEx(lcan_dst2,MORPH_TOPHAT,kernel3)
-    cv.imshow('b_lcan_dst2', t_lcan_dst2)
-    da_dst2=dilate(lcan_dst2-t_lcan_dst2,kernel)
-    cv.imshow('da_dst2',da_dst2)
-    lcanimg=orimg[starty:finaly, startx-10:finalx+10]
-    cv.imshow('lcanimg',lcanimg)
-    lcanimgs=cutimg1(lcanimg, 0)
-    for lli in lcanimgs:
-        cv.imshow('lli',lli)       
-    return lcanimgs,startx,starty,finalx,finaly
+        for locat in locanimgs:
+            cv.imshow('locat',locat)        
+        finalx = bubble_sort(point, 0, 1)
+        startx = bubble_sort(point, 0, 0) - 3
+        starty = bubble_sort(point, 1, 0) - 3
+        finalx = finalx + bubble_sort(point, 2, 1) + 3
+        finaly = starty + bubble_sort(point, 3, 1) + 3    
+        return locanimgs,startx,starty,finalx,finaly
+    elif type==1:   
+        newimg = cv.Canny(img, 70, 100)
+        cv.imshow('newimg',newimg)
+        dst1=morphologyEx(newimg,MORPH_CLOSE,kernel5)
+        cv.imshow('dst1', dst1)
+        dst2=morphologyEx(dst1,MORPH_OPEN,kernel3)
+        cv.imshow('dst2', dst2)
+        contours = cv.findContours(dst2, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)[1]
+        for i in range(len(contours)):
+            cnt = contours[i]
+            x, y, w, h = cv.boundingRect(cnt)
+            if 40>w>15 and 50>h>25:
+                point.append(add_cont(x,y,w,h))
+                cv.rectangle(img, (x,y), (x+w,y+h), (255,0,0), 2)
+        cv.imshow('imggg',img)
+        imggg1=orimg.copy()
+                
+        for o in range(len(point)):
+            for i in range(len(point)):
+                if i != o:
+                    xx= abs(point[o][1] - point[i][1])
+                    if xx>=0 and xx<=10:
+                        tent += 1
+                        
+                    if  tent >10 :
+                        tent = 1
+                        target.append(point[o])
+                        x,y,w,h=point[o][0],point[o][1],point[o][2],point[o][3]
+                        cv.rectangle(imggg1,(x,y),(x+w,y+h),(255,0,0),2)
+                        break
+        cv.imshow('imggg1',imggg1)          
+        finalx = bubble_sort(point, 0, 1)
+        startx = bubble_sort(point, 0, 0) - 3
+        starty = bubble_sort(point, 1, 0) - 3
+        finalx = finalx + bubble_sort(point, 2, 1)
+        finaly = starty + bubble_sort(point, 3, 1) + 8
+        lcan_dst2=dst2[starty:finaly, startx:finalx]
+        cv.imshow('lcan_dst2',lcan_dst2)
+        
+        t_lcan_dst2=morphologyEx(lcan_dst2,MORPH_TOPHAT,kernel4)
+        cv.imshow('b_lcan_dst2', t_lcan_dst2)
+        da_dst2=dilate(lcan_dst2-t_lcan_dst2,kernel5)
+        cv.imshow('da_dst2',da_dst2)
+        lcanimg=orimg[starty:finaly, startx-10:finalx+10]
+        cv.imshow('lcanimg',lcanimg)
+        locanimgs=cutimg1(lcanimg, 0)
+        for lli in locanimgs:
+            cv.imshow('lli',lli)       
+        return locanimgs,startx,starty,finalx,finaly
 def getlight(grayimg):
     light=0
     cout=0   
@@ -276,19 +298,56 @@ def getlight(grayimg):
             cout+=1
     imglight=light//cout
     return imglight
+
+def line_detect_possible(orimage):
+    image=orimage.copy()
+    th=100
+    image = cv.resize(image, (680,500), interpolation=cv.INTER_AREA)
+    gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
+    edges = cv.Canny(gray, 100, 150)
+    cv.imshow("edges", edges)
+    lines = cv.HoughLinesP(edges, 1, np.pi/180, 50, 100, minLineLength =250, maxLineGap = 30)
+    for line in lines:
+        x1, y1, x2, y2 = line[0]
+        if (abs(x1-x2)<20 or abs(y1-y2)<20):
+            cv.line(image, (x1, y1), (x2, y2), (0, 0, 255), 2)
+            cv.imshow("line_detect_possible", image)
+    cv.imshow("line_detect_possible", image)
+
+def fix(imgs):
+    return None
+def cutbankimg(img,th,wzise):
+    imgs=[]
+    radio=img.shape[1]//img.shape[0]
+    img=cv.resize(img,(600*radio,600))
+    n=0
+    while True:
+        if n+th>600*radio:
+            return imgs
+        else:
+            cutimg=img[n:n+th,0:]
+            imgs.append(cutimg)
+        n+=wzise    
+        
 def imghandle(img_name):#图片处理
     handle=[]
     orgimg = cv.imread(img_name)
+#     line_detect_possible(orgimg)
+    cv.imshow('orgimg',orgimg)
     imgout=scan(orgimg)
-   
-    if imgout=='noscan':
-        imgout=orgimg.copy()
-        imgout = cv.resize(imgout, (800,400), interpolation=cv.INTER_AREA)
-        localimgs,startx,starty,finalx,finaly=CardNumLocal(imgout.copy())#卡号定位处理
-    else:
-        imgout = cv.resize(imgout, (800,400), interpolation=cv.INTER_AREA)
-        localimgs,startx,starty,finalx,finaly=CardNumLocal(imgout.copy())#卡号定位处理
-    cv.rectangle(imgout, (startx,starty), (finalx,finaly), (255,0,0), 2)
-    plt.imshow(imgout)
-    plt.show()
-    return  localimgs   
+    cv.imshow('imgoutfix',imgout)
+    cutimgs=cutbankimg(imgout, 55, 5)
+    for img in cutimgs:
+        cv.imshow('cutimg',img)
+    return cutimgs    
+#     if imgout=='noscan':
+#         imgout=orgimg.copy()
+#         imgout = cv.resize(imgout, (800,400), interpolation=cv.INTER_AREA)
+#         localimgs,startx,starty,finalx,finaly=CardNumLocal(imgout.copy(),0)#卡号定位处理
+#     else:
+#         imgout = cv.resize(imgout, (800,400), interpolation=cv.INTER_AREA)
+#         localimgs,startx,starty,finalx,finaly=CardNumLocal(imgout.copy(),1)#卡号定位处理
+#     cv.rectangle(imgout, (startx,starty), (finalx,finaly), (255,0,0), 2)
+#     plt.imshow(imgout)
+#     plt.show()
+#     return  localimgs   

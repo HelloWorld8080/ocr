@@ -11,7 +11,6 @@ def cv_show(name,img):
     cv.imshow(name, img)
     cv.waitKey(0)
     cv.destroyAllWindows()
-    
 def enhance(load):#数据增强模块
     with tf.Session() as sess:
         for i in load:
@@ -138,8 +137,8 @@ def scan(image):
         # epsilon表示从原始轮廓到近似轮廓的最大距离，它是一个准确度参数
         # True表示封闭的
         approx = cv.approxPolyDP(c, 0.01 * peri, True)
-        cv.drawContours(image, [approx], -1, (0, 100, 200), 2)
-        cv.imshow('approx',image)
+        cv.drawContours(orig, [approx], -1, (0, 100, 200), 2)
+        cv.imshow('approx',orig)
         # 4个点的时候就拿出来
         if len(approx) == 4:
             screenCnt = approx
@@ -158,7 +157,6 @@ def scan(image):
         # 透视变换
         warped = four_point_transform(orig, screenCnt.reshape(4,2))
         cv.imshow('warped',warped)
-        
         return warped
       
     else:
@@ -338,7 +336,7 @@ def cutbankimg(img,th,wzise,style):
 def imghandle(img_name):#图片处理
     handle=[]
     orgimg = cv.imread(img_name)
-#     line_detect_possible(orgimg)
+    line_detect_possible(orgimg)
     cv.imshow('orgimg',orgimg)
     imgout=scan(orgimg)
 #     imgout = orgimg

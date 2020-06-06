@@ -13,7 +13,7 @@ def resizeandgray(img):
     for xx in x:
         cv.imshow('xx',xx)    
     return x
-def xz():
+def xz():#图片识别
     filename=tfl.askopenfilename()
     print(filename)
     imgs=a.imghandle(filename)
@@ -52,14 +52,14 @@ def xz():
                 plt.xlabel('x')
                 plt.ylabel('推理值')
                 plt.close(None)
-def tr():
+def tr():#模型建立
     trwin=tk.Toplevel(root)
     trwin.geometry('300x200')
     trwin.title('模型训练')
     label=tk.Label(trwin,text='共计训练4586张图片',bg='green').pack()
     label=tk.Label(trwin,text='精确度：  99.57%',bg='green').pack()
     label=tk.Label(trwin,text='损失率：  1.0203e4',bg='green').pack()
-def en():
+def en():#数据增强
     filename=tfl.askopenfilenames()
     a.enhance(filename)
 root = tk.Tk()

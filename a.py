@@ -7,11 +7,12 @@ from os import listdir
 from matplotlib import pyplot as plt
 from scipy import ndimage
 from cv2.cv2 import morphologyEx, MORPH_CLOSE, MORPH_OPEN, MORPH_TOPHAT, dilate
+from skimage.feature._canny import canny
 def cv_show(name,img):
     cv.imshow(name, img)
     cv.waitKey(0)
     cv.destroyAllWindows()
-def enhance(load):#数据增强模块
+def enhance1(load):#数据增强模块
     with tf.Session() as sess:
         for i in load:
             for s in range(0,20):
@@ -49,6 +50,17 @@ def enhance(load):#数据增强模块
                 img_data = tf.image.convert_image_dtype(img_data, tf.int16)
                 strload=i[0:i.find('.',-5,-1)-1]+'_'+str(s)+str(n)+'.png'
                 cv.imwrite(strload,img_data.eval())
+def enhance2(filenames):
+    co=0
+    for filename in  filenames:
+        cardimg=cv.imread(filename)
+        rawimgs=WindowSlide(cardimg, 46, 46, 0)
+        for rawimg in rawimgs:
+            colimgs=WindowSlide(rawimg,30, 30, 1)
+            for colimg in colimgs:
+                gray=cv.cvtColor(colimg,cv.COLOR_BGR2GRAY)
+                cv.imwrite('imgset/'+'_'+str(co)+'.png', gray)
+                co+=1                
 def cutimg(img_value,ROI_w,ROI_h,ROI_x,ROI_y,type):#裁剪图片
     img=[]
     t=0
@@ -145,10 +157,10 @@ def scan(image):
             break
     
     # 展示结果
+    w=0
+    h=0
     if(len(screenCnt)==4):
-       x, y, w, h = cv.boundingRect(screenCnt) 
-    else:
-        return 'noscan'
+       x, y, w, h = cv.boundingRect(screenCnt)    
     if w>500 and h>300 :
         print("STEP 2: 获取轮廓")
         cv.drawContours(image, [screenCnt], -1, (0, 255, 0), 2)
@@ -158,10 +170,9 @@ def scan(image):
         warped = four_point_transform(orig, screenCnt.reshape(4,2))
         cv.imshow('warped',warped)
         return warped
-      
-    else:
-        return 'noscan'
-    
+    return []
+def ts(e):
+        return e[0]
 def CardNumLocal(orimg,type):
     # 添加矩形框元素
     def add_cont(x, y, w ,h):
@@ -201,8 +212,6 @@ def CardNumLocal(orimg,type):
                     cv.imshow('cutjimg',cutjimg)
                     handle.append(cutjimg)    
         return handle
-    def ts(e):
-        return e[0]
     locanimgs=[]     
     tent = 1
     point = []
@@ -217,7 +226,8 @@ def CardNumLocal(orimg,type):
         gray = cv.GaussianBlur(img, (5, 5), 0)
         newimg = cv.Canny(gray, 70, 100)
         cv.imshow('newimg',newimg)
-        dst0_9=morphologyEx(newimg,MORPH_CLOSE,kernel9)
+        dst0_9=morphologyEx(newimg,MORPH_CLOSE,kernel5)
+        dst0_9=morphologyEx(dst0_9,MORPH_OPEN,kernel3)
         cv.imshow('dst0_9',dst0_9)
         contours = cv.findContours(dst0_9, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)[1]
         for cnt in contours:
@@ -249,7 +259,7 @@ def CardNumLocal(orimg,type):
         for i in range(len(contours)):
             cnt = contours[i]
             x, y, w, h = cv.boundingRect(cnt)
-            if 40>w>15 and 50>h>25:
+            if 40>w>15 and 50>h>15:
                 point.append(add_cont(x,y,w,h))
                 cv.rectangle(img, (x,y), (x+w,y+h), (255,0,0), 2)
         cv.imshow('imggg',img)
@@ -259,23 +269,23 @@ def CardNumLocal(orimg,type):
             for i in range(len(point)):
                 if i != o:
                     xx= abs(point[o][1] - point[i][1])
-                    if xx>=0 and xx<=10:
+                    if 0<xx<=10:
                         tent += 1
-                        
                     if  tent >10 :
                         tent = 1
                         target.append(point[o])
                         x,y,w,h=point[o][0],point[o][1],point[o][2],point[o][3]
                         cv.rectangle(imggg1,(x,y),(x+w,y+h),(255,0,0),2)
-                        break
-        cv.imshow('imggg1',imggg1)          
+                        cv.imshow('imggg1',imggg1)              
         finalx = bubble_sort(point, 0, 1)
         startx = bubble_sort(point, 0, 0) - 3
         starty = bubble_sort(point, 1, 0) - 3
         finalx = finalx + bubble_sort(point, 2, 1)
         finaly = starty + bubble_sort(point, 3, 1) + 8
         lcan_dst2=dst2[starty:finaly, startx:finalx]
+         
         cv.imshow('lcan_dst2',lcan_dst2)
+        
         
         t_lcan_dst2=morphologyEx(lcan_dst2,MORPH_TOPHAT,kernel4)
         cv.imshow('b_lcan_dst2', t_lcan_dst2)
@@ -312,9 +322,7 @@ def line_detect_possible(orimage):
             cv.imshow("line_detect_possible", image)
     cv.imshow("line_detect_possible", image)
 
-def fix(imgs):
-    return None
-def cutbankimg(img,th,wzise,style):
+def WindowSlide(img,th,step,style):#th切割大小，step切割步长，style切割方向：0为向下切割。1为向右切割
     imgs=[]
     n=0
     if style==0:
@@ -324,7 +332,7 @@ def cutbankimg(img,th,wzise,style):
             else:
                 cutimg=img[n:n+th,0:]
                 imgs.append(cutimg)
-            n+=wzise    
+            n+=step    
     elif style==1:
         while True:
             if n+th>img.shape[1]:
@@ -332,22 +340,177 @@ def cutbankimg(img,th,wzise,style):
             else:
                 cutimg=img[0:,n:n+th]
                 imgs.append(cutimg)
-            n+=wzise   
+            n+=step
+def CardNumLocal2(img):
+    # 添加矩形框元素
+    def add_cont(x, y, w ,h):
+        p = []
+        p.append(x)
+        p.append(y)
+        p.append(w)
+        p.append(h)
+        return p
+    # 起泡法排序返回最大or最小值
+    def bubble_sort(a, w, s):
+        '''w: 要取的x,y,w,h元素，对应0，1，2，3'''
+        '''s: 0取最小值， 1取最大值'''
+        b = []
+        temp = 0
+        for i in range(len(a)):
+            b.append(a[i][w])
+        b.sort()
+        if s:
+            return b[len(b)-1]
+        else:
+            return b[0]
+
+    tent = 0
+    startx = 0
+    finalx = 0
+    finaly = 0
+    finalw = 0
+    finalh = 0
+    point = []
+    target = []
+    img0 = img
+    img0 = cv.resize(img0, (800,400), interpolation=cv.INTER_AREA)
+    img = cv.cvtColor(img0, cv.COLOR_BGR2GRAY)
+    cv.namedWindow("org")
+    kernel = np.ones((3, 3), np.uint8)
+    newimg = cv.Canny(img, 170, 100)
+    newimg = cv.morphologyEx(newimg, cv.MORPH_CLOSE, kernel)
+    image_contours, contours, hier = cv.findContours(newimg, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
+    for i in range(len(contours)):
+        cnt = contours[i]
+        x, y, w, h = cv.boundingRect(cnt)
+        if 50>w>10 and 50>h>10:
+            point.append(add_cont(x,y,w,h))
+    for o in range(len(point)):
+        for i in range(len(point)):
+            if 0 < abs(point[o][1] - point[i][1]) < 5:
+                tent += 1
+            elif abs(point[o][1] - point[i][1]) == 0:
+                if point[o][0] != point[i][0]:
+                    tent += 1
+            if tent > 6:
+                tent = 0
+                target.append(point[o])
+    newimg[0:target[0][1]-3,0:800] = 0
+    newimg[target[0][1]+target[0][3]+3:400, 0:800] = 0
+    point = []
+    target = []
+    image_contours, contours, hier = cv.findContours(newimg, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
+    for i in range(len(contours)):
+        cnt = contours[i]
+        x, y, w, h = cv.boundingRect(cnt)
+        if 50>w>3 and 50>h>3:
+            point.append(add_cont(x,y,w,h))
+    finalx = bubble_sort(point, 0, 1)
+    startx = bubble_sort(point, 0, 0) - 3
+    finaly = bubble_sort(point, 1, 0) - 3
+    finalw = finalx + bubble_sort(point, 2, 1)
+    finalh = finaly + bubble_sort(point, 3, 1) + 10
+    print("startx = "+ str(startx))
+    print("starty = "+ str(finaly))
+    print("width = "+ str(finalw))
+    print("height = "+ str(finalh))
+    # 画出矩形框
+    cv.rectangle(img0,(startx,finaly),(finalw, finalh),(0, 255, 0),2)
+    
+    cv.imshow("org", img0)
+    
+    cv.waitKey()
+    cv.destroyAllWindows()
+def CardNumLocal3(img):
+     # 添加矩形框元素
+    def add_cont(x, y, w ,h):
+        p = []
+        p.append(x)
+        p.append(y)
+        p.append(w)
+        p.append(h)
+        return p
+    # 起泡法排序返回最大or最小值
+    def bubble_sort(a, w, s):
+        '''w: 要取的x,y,w,h元素，对应0，1，2，3'''
+        '''s: 0取最小值， 1取最大值'''
+        b = []
+        temp = 0
+        for i in range(len(a)):
+            b.append(a[i][w])
+        b.sort()
+        if s:
+            return b[len(b)-1]
+        else:
+            return b[0]
+    localimgs=[]    
+    orgimg=img.copy() 
+   
+    gray=cv.cvtColor(img,cv.COLOR_BGR2GRAY)   
+    gauss = cv.GaussianBlur(gray, (5, 5), 0)    
+    canny=cv.Canny(gauss,70,100)
+    cv.imshow('canny',canny)
+    point=[]
+    contours = cv.findContours(canny, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)[1]
+    coimg=orgimg.copy()           
+    for i in range(len(contours)):
+        x,y,w,h = cv.boundingRect(contours[i])
+        if 35>w>10 and 40>h>10 and 150<y<250:
+            point.append(add_cont(x,y,w,h))
+            cv.rectangle(coimg,(x,y),(x+w,y+h),(255,0,0),2)
+            cv.imshow('coimg',coimg)
+    point.sort(key=ts)
+    target=[]
+    for o in range(len(point)):
+        tent=0
+        for i in range(len(point)):
+            if 0 < abs(point[o][1] - point[i][1]) < 5:
+                tent += 1
+            elif abs(point[o][1] - point[i][1]) == 0:
+                if point[o][0] != point[i][0]:
+                    tent += 1
+            if tent > 12:
+                tent = 0
+                target.append(point[o])  
+    loc=orgimg.copy()
+    target.sort(key=ts)
+    coimg1=orgimg.copy()
+    for x,y,w,h in target:
+        cv.rectangle(coimg1,(x,y),(x+w,y+h),(255,0,0),2)
+        cv.imshow('coimg1',coimg1)
+    startx=target[0][0]-3
+    starty=target[0][1]-3
+    finalx=target[-1][0]+target[-1][2]+3
+    finaly=target[-1][1]+target[-1][3]+3
+    for x,y,w,h in target:
+        localimg=loc[y-3:y+h+3,x-3:x+w+3]
+        cv.imshow('localimg',localimg)
+        localimgs.append(localimg)
+    return localimgs,startx,starty,finalx,finaly        
 def imghandle(img_name):#图片处理
-    handle=[]
+#     handle=[]
     orgimg = cv.imread(img_name)
-    line_detect_possible(orgimg)
+#     line_detect_possible(orgimg)
     cv.imshow('orgimg',orgimg)
     imgout=scan(orgimg)
-#     imgout = orgimg
-    cv.imshow('imgoutfix',imgout)
-    radio=imgout.shape[0]/imgout.shape[1]
-    img=cv.resize(imgout,( 600,int(600*radio) ))
-    cv.imshow('img',img)
-    cutimgs=cutbankimg(img, 52, 50,0)
-    for img in cutimgs:
-        cv.imshow('cutimg',img)
-    return cutimgs    
+    localimgs=[]
+    if len(imgout)==0:
+        imgout=orgimg.copy()
+        imgout = cv.resize(imgout, (600,400), interpolation=cv.INTER_AREA)
+        localimgs,startx,starty,finalx,finaly=CardNumLocal3(imgout.copy())
+    else:    
+        imgout = cv.resize(imgout, (800,400), interpolation=cv.INTER_AREA)
+        localimgs,startx,starty,finalx,finaly=CardNumLocal(imgout.copy(),1)#卡号定位处理  
+#     radio=imgout.shape[0]/imgout.shape[1]
+#     img=cv.resize(imgout,( 600,int(600*radio)))
+#     cv.imshow('img',img)
+#     hei=img.shape[0]
+#     img1=img[hei//2-10:hei//2+90,0:]
+#     cv.imshow('img1',img1)    
+#     localimgs=WindowSlide(img1, 52, 5,0)
+#     for img in localimgs:
+#         cv.imshow('cutimg',img)
+#     return localimgs    
 #     if imgout=='noscan':
 #         imgout=orgimg.copy()
 #         imgout = cv.resize(imgout, (800,400), interpolation=cv.INTER_AREA)
@@ -355,7 +518,8 @@ def imghandle(img_name):#图片处理
 #     else:
 #         imgout = cv.resize(imgout, (800,400), interpolation=cv.INTER_AREA)
 #         localimgs,startx,starty,finalx,finaly=CardNumLocal(imgout.copy(),1)#卡号定位处理
-#     cv.rectangle(imgout, (startx,starty), (finalx,finaly), (255,0,0), 2)
-#     plt.imshow(imgout)
-#     plt.show()
-#     return  localimgs   
+    cv.rectangle(imgout, (startx,starty), (finalx,finaly), (255,0,0), 2)
+    cv.destroyAllWindows()
+    plt.imshow(imgout)
+    plt.show()
+    return  localimgs   

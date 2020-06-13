@@ -10,9 +10,9 @@ from matplotlib.pylab import style
 
 #parm
 learning_rate=0.001 #学习率
-training_iters=10 #训练周期s
+training_iters=20 #训练周期s
 batch_size=50 #批处理
-display_step=10 #迭代次数用于统计精准度
+display_step=20 #迭代次数用于统计精准度
 #network
 out_class=11
 dropout=0.8
@@ -26,20 +26,19 @@ def maxpool2d(x_input,k):
 def convnet(x,weights,biases,dropout):
         x=tf.reshape(x,shape=[-1,46,30,1])
         conv1= conv2d(x,weights['wc1'],biases['bc1'])
-        conv2=conv2d(conv1,weights['wc2'],biases['bc2'])
-        maxpool1=maxpool2d(conv2,k=2)
-        maxpool2=maxpool2d(maxpool1,k=3)
+        maxpool1=maxpool2d(conv1,k=2)
+        conv2=conv2d(maxpool1,weights['wc2'],biases['bc2'])
+        maxpool2=maxpool2d(conv2,k=2)
         fullshape=maxpool2.shape.as_list()[1]*maxpool2.shape.as_list()[2]*maxpool2.shape.as_list()[3]
-        
         fc=tf.reshape(maxpool2,shape=[-1,fullshape])
         fullweights={
             # full connected,out=1024
-            'wd1':tf.Variable(tf.random_normal([fullshape,512]),name='wd1'),#全连接层权重
+            'wd1':tf.Variable(tf.random_normal([fullshape,1024]),name='wd1'),#全连接层权重
             # full connected,out=11
-            'wd2':tf.Variable(tf.random_normal([512,out_class]),name='wd2')
+            'wd2':tf.Variable(tf.random_normal([1024,out_class]),name='wd2')
             }
         fullbiases={
-            'bd1':tf.Variable(tf.random_normal([512]),name='bd1'),#全连接层权重
+            'bd1':tf.Variable(tf.random_normal([1024]),name='bd1'),#全连接层权重
             'bd2':tf.Variable(tf.random_normal([out_class]),name='bd2'),
             }
         fullconnect=tf.add(tf.matmul(fc,fullweights['wd1']),fullbiases['bd1'],name='fullconnect')
@@ -55,8 +54,7 @@ weights={#权重
 biases={
         # conv1
         'bc1':tf.Variable(tf.random_normal([32]),name='bc1'),
-        'bc2':tf.Variable(tf.random_normal([64]),name='bc2'),#卷积层权重
-       
+        'bc2':tf.Variable(tf.random_normal([64]),name='bc2'),#卷积层权重  
 }
  
 def cutimg(img_value):#切割图片
@@ -68,18 +66,19 @@ def cutimg(img_value):#切割图片
         x=img_value[0:,n:n+30]
         cv.imshow('x',np.array(x))
         img.append(np.array(x))
-def img_load(path='imgset'):#加载图片
+def img_load(path='imgset/'):#加载图片
     labels=[]
     imgs=[]
     img_list=listdir(path)
     for imgname in img_list:
         image=cv.imread(path+imgname)
+        image=cv.cvtColor(image, cv.COLOR_BGR2GRAY)
         imgs.append(image)
         x=np.zeros((out_class))
-        if imgname=='_': 
+        if imgname[0] =='_': 
             x[out_class-1]=1
         else:
-            x[int(imgname)]=1
+            x[int(imgname[0])]=1
         labels.append(x)      
     return imgs,labels    
 def String_add(string_list):
@@ -88,22 +87,25 @@ def String_add(string_list):
         string_list[n]='img/'+i
         n+=1
 def imgset_cuthandle(path,key_list):
-        for imgname in key_list:
-            image=cv.imread(path+imgname,cv.COLOR_BGR2GRAY)
-            for i in range(0,4):
-                n=i*30
-                img=image[0:,n:n+30]
-                if imgname[i]=='_': 
-                    cv.imwrite('imgset/_.png',img) 
-                else:
-                    cv.imwrite('imgset/'+imgname[i]+'.png',img)        
+    co=0
+    for imgname in key_list:
+        image=cv.imread(path+imgname)
+        image=cv.cvtColor(image, cv.COLOR_BGR2GRAY)
+        for i in range(0,4):
+            n=i*30
+            img=image[0:,n:n+30]
+            if imgname[i]=='_': 
+                cv.imwrite('imgset/_'+str(co)+'a.png',img) 
+            else:
+                cv.imwrite('imgset/'+imgname[i]+'_'+str(co)+'a.png',img)
+            co+=1            
 style.use('ggplot')    
 plt.rcParams['font.sans-serif'] = ['SimHei'] 
 plt.rcParams['axes.unicode_minus'] = False
 path='img/'      
 img_list=listdir(path)#获取训练数据
 imgset_cuthandle(path,img_list)
-imgs,labels=img_load('imgset')#加载数据集
+imgs,labels=img_load('imgset/')#加载数据集
 x1=tf.constant(np.array(imgs))
 t1=tf.constant(np.array(labels))
 dataset=tf.data.Dataset.from_tensor_slices((x1, t1))#建立dataset集
@@ -144,7 +146,7 @@ with tf.Session() as sess:#开始训练
                 plt.xlabel('迭代次数')
                 plt.ylabel('损失率')
                 plt.close(None)
-               
+    
                 plt.scatter(eval_indices[0:len(training_acc)],training_acc,c='r',marker='x',label='训练准确率散点图')
                 plt.xlabel('迭代次数')
                 plt.ylabel('精确度')
